@@ -41,6 +41,8 @@ _kpod_images() {
      --format
      --filter
      -f
+     -j
+     --json
      "
     local options_with_args="
   "

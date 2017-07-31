@@ -25,6 +25,10 @@ Filter output based on conditions provided (default [])
 
 Pretty-print images using a Go template.  Will override --quiet
 
+**--json, -j**
+
+Output in JSON format.
+
 **--noheading, -n**
 
 Omit the table headings from the listing of images.
@@ -45,6 +49,8 @@ kpod images
 kpod images --quiet
 
 kpod images -q --noheading --notruncate
+
+kpod images --json
 
 ## SEE ALSO
 kpod(1)
