@@ -8,6 +8,8 @@ import (
 	"text/template"
 )
 
+const JSONString string = "json"
+
 // Writer interface for outputs
 type Writer interface {
 	Out() error

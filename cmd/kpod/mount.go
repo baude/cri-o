@@ -6,6 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
+	of "github.com/kubernetes-incubator/cri-o/cmd/kpod/formats"
 )
 
 var (
@@ -55,7 +56,7 @@ func mountCmd(c *cli.Context) error {
 	}
 
 	args := c.Args()
-	json := c.String("format") == "json"
+	json := c.String("format") == of.JSONString
 	if !formats[c.String("format")] {
 		return errors.Errorf("%q is not a supported format", c.String("format"))
 	}

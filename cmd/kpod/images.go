@@ -90,7 +90,7 @@ func (so stdoutstruct) Out() error {
 	return nil
 }
 
-func toGeneric(params []imageOutputParams) []interface{} {
+func imageToGeneric(params []imageOutputParams) []interface{} {
 	genericParams := make([]interface{}, len(params))
 	for i, v := range params {
 		genericParams[i] = interface{}(v)
@@ -198,11 +198,11 @@ func outputImages(store storage.Store, images []storage.Image, truncate, digests
 
 	if outputFormat != "" {
 		switch outputFormat {
-		case "json":
-			out = formats.JSONstruct{Output: toGeneric(imageOutput)}
+		case formats.JSONString:
+			out = formats.JSONstruct{Output: imageToGeneric(imageOutput)}
 		default:
 			// Assuming Go-template
-			out = formats.StdoutTemplate{Output: toGeneric(imageOutput), Template: outputFormat}
+			out = formats.StdoutTemplate{Output: imageToGeneric(imageOutput), Template: outputFormat}
 
 		}
 	} else {
