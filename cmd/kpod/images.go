@@ -199,10 +199,10 @@ func outputImages(store storage.Store, images []storage.Image, truncate, digests
 	if outputFormat != "" {
 		switch outputFormat {
 		case formats.JSONString:
-			out = formats.JSONstruct{Output: imageToGeneric(imageOutput)}
+			out = formats.JSONStructArray{Output: imageToGeneric(imageOutput)}
 		default:
 			// Assuming Go-template
-			out = formats.StdoutTemplate{Output: imageToGeneric(imageOutput), Template: outputFormat}
+			out = formats.StdoutTemplateArray{Output: imageToGeneric(imageOutput), Template: outputFormat}
 
 		}
 	} else {

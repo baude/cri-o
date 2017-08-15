@@ -15,19 +15,31 @@ type Writer interface {
 	Out() error
 }
 
-// JSONstruct for JSON output
-type JSONstruct struct {
+// JSONStructArray for JSON output
+type JSONStructArray struct {
 	Output []interface{}
 }
 
-// StdoutTemplate for Go template output
-type StdoutTemplate struct {
+// StdoutTemplateArray for Go template output
+type StdoutTemplateArray struct {
 	Output   []interface{}
 	Template string
 }
 
-// Out method for JSON
-func (j JSONstruct) Out() error {
+// JSONStruct for JSON output
+type JSONStruct struct {
+	Output interface{}
+}
+
+// StdoutTemplatefor Go template output
+type StdoutTemplate struct {
+	Output   interface{}
+	Template string
+}
+
+// Should the next two funcs be combined?
+// Out method for JSON Arrays
+func (j JSONStructArray) Out() error {
 	data, err := json.MarshalIndent(j.Output, "", "    ")
 	if err != nil {
 		return err
@@ -36,9 +48,18 @@ func (j JSONstruct) Out() error {
 	return nil
 }
 
-// Out method for Go templates
-func (t StdoutTemplate) Out() error {
+func (j JSONStruct) Out() error {
+	data, err := json.MarshalIndent(j.Output, "", "    ")
+	if err != nil {
+		return err
+	}
+	fmt.Printf("%s\n", data)
+	return nil
+}
 
+
+// Out method for Go templates arrays
+func (t StdoutTemplateArray) Out() error {
 	tmpl, err := template.New("image").Parse(t.Template)
 	if err != nil {
 		return errors.Wrapf(err, "Template parsing error")
@@ -52,5 +73,16 @@ func (t StdoutTemplate) Out() error {
 		fmt.Println()
 	}
 	return nil
+}
 
+//Out method for Go templates
+func (t StdoutTemplate) Out() error {
+	fmt.Printf("%v\n", t.Output)
+	tmpl, err := template.New("image").Parse(t.Template)
+	if err != nil {
+		return errors.Wrapf(err, "Template parsing error")
+	}
+	err = tmpl.Execute(os.Stdout, t.Output)
+	fmt.Println()
+	return nil
 }

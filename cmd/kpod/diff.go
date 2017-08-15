@@ -1,13 +1,13 @@
 package main
 
 import (
-	"fmt"
 
 	"github.com/containers/storage/pkg/archive"
 	"github.com/kubernetes-incubator/cri-o/cmd/kpod/formats"
 	"github.com/kubernetes-incubator/cri-o/libkpod"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
+	"fmt"
 )
 
 type diffJSONOutput struct {
@@ -69,32 +69,6 @@ var (
 	}
 )
 
-func diffToGeneric(params diffJSONOutput) []interface{} {
-	var genericParams []interface{}
-	genericParams = append(genericParams, params)
-
-	// We want our JSON output to format correctly.  Empty arrays should appear
-	// as [] rather than null
-	if len(params.Changed) < 1 {
-		var emptyChanges changed
-		emptyChanges.Changed = make([]string, 0)
-		genericParams = append(genericParams, emptyChanges)
-	}
-
-	if len(params.Added) < 1 {
-		var emptyAdds added
-		emptyAdds.Added = make([]string, 0)
-		genericParams = append(genericParams, emptyAdds)
-	}
-
-	if len(params.Deleted) < 1 {
-		var emptyDeletes deleted
-		emptyDeletes.Deleted = make([]string, 0)
-		genericParams = append(genericParams, emptyDeletes)
-	}
-	return genericParams
-}
-
 func formatJSON(output []diffOutputParams) (diffJSONOutput, error) {
 	jsonStruct := diffJSONOutput{}
 	for _, output := range output {
@@ -109,7 +83,6 @@ func formatJSON(output []diffOutputParams) (diffJSONOutput, error) {
 			return jsonStruct, errors.Errorf("output kind %q not recognized", output.Change.String())
 		}
 	}
-
 	return jsonStruct, nil
 }
 
@@ -154,7 +127,7 @@ func diffCmd(c *cli.Context) error {
 			if err != nil {
 				return err
 			}
-			out = formats.JSONstruct{Output: diffToGeneric(data)}
+			out = formats.JSONStruct{Output: data}
 		default:
 			return errors.New("only valid format for diff is 'json'")
 		}
