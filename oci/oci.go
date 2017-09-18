@@ -28,6 +28,8 @@ const (
 	ContainerStateRunning = "running"
 	// ContainerStateStopped represents the stopped state of a container
 	ContainerStateStopped = "stopped"
+	// ContainerStatePaused represents a paused state of a container
+	ContainerStatePaused = "paused"
 	// ContainerCreateTimeout represents the value of container creating timeout
 	ContainerCreateTimeout = 10 * time.Second
 
@@ -677,4 +679,20 @@ func (r *Runtime) RuntimeReady() (bool, error) {
 // accept containers which require container network.
 func (r *Runtime) NetworkReady() (bool, error) {
 	return true, nil
+}
+
+// ContainerPause pauses all the processes in a container
+func (r *Runtime) ContainerPause(c *Container) error {
+	c.opLock.Lock()
+	defer c.opLock.Unlock()
+	_, err := utils.ExecCmd(r.Path(c), "pause", c.id)
+	return err
+}
+
+// ContainerResume resumes the processes in a paused container
+func (r *Runtime) ContainerResume(c *Container) error {
+		c.opLock.Lock()
+	defer c.opLock.Unlock()
+	_, err := utils.ExecCmd(r.Path(c), "resume", c.id)
+	return err
 }

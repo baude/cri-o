@@ -51,6 +51,7 @@ It is currently in active development in the Kubernetes community through the [d
 | [kpod-load(1)](/docs/kpod-load.1.md)                 | Load an image from docker archive or oci                                  |[![...](/docs/play.png)](https://asciinema.org/a/kp8kOaexEhEa20P1KLZ3L5X4g)|
 | [kpod-logs(1)](/docs/kpod-logs.1.md)                 | Display the logs of a container                                           ||
 | [kpod-mount(1)](/docs/kpod-mount.1.md)               | Mount a working container's root filesystem                               ||
+| [kpod-pause(1)](/docs/kpod-pause.1.md)               | Pause all the processes in one or more containers
 | [kpod-ps(1)](/docs/kpod-ps.1.md)                     | Prints out information about containers                                   |[![...](/docs/play.png)](https://asciinema.org/a/bbT41kac6CwZ5giESmZLIaTLR)|
 | [kpod-pull(1)](/docs/kpod-pull.1.md)                 | Pull an image from a registry                                             |[![...](/docs/play.png)](https://asciinema.org/a/lr4zfoynHJOUNu1KaXa1dwG2X)|
 | [kpod-push(1)](/docs/kpod-push.1.md)                 | Push an image to a specified destination                                  |[![...](/docs/play.png)](https://asciinema.org/a/133276)|
@@ -62,6 +63,7 @@ It is currently in active development in the Kubernetes community through the [d
 | [kpod-stop(1)](/docs/kpod-stop.1.md)               | Stops one or more running containers.||
 | [kpod-tag(1)](/docs/kpod-tag.1.md)                   | Add an additional name to a local image                                   |[![...](/docs/play.png)](https://asciinema.org/a/133803)|
 | [kpod-umount(1)](/docs/kpod-umount.1.md)             | Unmount a working container's root filesystem                             ||
+| [kpod-unpause(1)](/docs/kpod-unpause.1.md)           | Unpause the processes in one or more paused containers
 | [kpod-version(1)](/docs/kpod-version.1.md)           | Display the version information                                           |[![...](/docs/play.png)](https://asciinema.org/a/mfrn61pjZT9Fc8L4NbfdSqfgu)|
 
 ## Configuration
