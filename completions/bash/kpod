@@ -374,6 +374,18 @@ _kpod_stop() {
      _complete_ "$options_with_args" "$boolean_options"
 }
 
+_kpod_stop() {
+     local options_with_args="
+     --detach-keys
+     "
+     local boolean_options="
+     --help
+     --no-stdin
+     --sig-proxy
+     "
+     _complete_ "$options_with_args" "$boolean_options"
+}
+
 _complete_() {
     local options_with_args=$1
     local boolean_options="$2 -h --help"

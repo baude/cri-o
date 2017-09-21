@@ -90,12 +90,13 @@ func (DetachError) Error() string {
 func CopyDetachable(dst io.Writer, src io.Reader, keys []byte) (written int64, err error) {
 	if len(keys) == 0 {
 		// Default keys : ctrl-p ctrl-q
-		keys = []byte{16, 17}
+		keys = []byte{16, 16}
 	}
 
 	buf := make([]byte, 32*1024)
 	for {
 		nr, er := src.Read(buf)
+		fmt.Printf("1: %v\n", nr)
 		if nr > 0 {
 			preservBuf := []byte{}
 			for i, key := range keys {
@@ -105,36 +106,45 @@ func CopyDetachable(dst io.Writer, src io.Reader, keys []byte) (written int64, e
 				}
 				if i == len(keys)-1 {
 					// src.Close()
+					fmt.Printf("detach")
 					return 0, DetachError{}
 				}
 				nr, er = src.Read(buf)
 			}
+			fmt.Println("1")
 			var nw int
 			var ew error
 			if len(preservBuf) > 0 {
 				nw, ew = dst.Write(preservBuf)
+				fmt.Println("2")
 				nr = len(preservBuf)
 			} else {
 				nw, ew = dst.Write(buf[0:nr])
+				fmt.Println("3")
 			}
 			if nw > 0 {
 				written += int64(nw)
+				fmt.Printf("4: %v\n", written)
 			}
 			if ew != nil {
 				err = ew
+				fmt.Println("5")
 				break
 			}
 			if nr != nw {
 				err = io.ErrShortWrite
+				fmt.Println("6")
 				break
 			}
 		}
 		if er != nil {
 			if er != io.EOF {
+				fmt.Println("7")
 				err = er
 			}
 			break
 		}
 	}
+	fmt.Printf("written: %v\n", written)
 	return written, err
 }

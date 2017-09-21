@@ -25,6 +25,14 @@ import (
 	pb "k8s.io/kubernetes/pkg/kubelet/apis/cri/v1alpha1/runtime"
 )
 
+// streamService implements streaming.Runtime.
+//type streamService struct {
+//	runtimeServer       *ContainerServer // needed by Exec() endpoint
+//	streamServer        streaming.Server
+//	streamServerCloseCh chan struct{}
+//	streaming.Runtime
+//}
+
 // ContainerServer implements the ImageServer
 type ContainerServer struct {
 	runtime              *oci.Runtime
@@ -42,6 +50,10 @@ type ContainerServer struct {
 	stateLock    sync.Locker
 	state        *containerServerState
 	config       *Config
+
+//	bindAddress     string
+//	stream	streamService
+//	exitMonitorChan chan struct{}
 }
 
 // Runtime returns the oci runtime for the ContainerServer
@@ -152,7 +164,7 @@ func New(config *Config) (*ContainerServer, error) {
 		}
 	}
 
-	return &ContainerServer{
+	 c := &ContainerServer{
 		runtime:              runtime,
 		store:                store,
 		storageImageServer:   imageService,
@@ -170,7 +182,41 @@ func New(config *Config) (*ContainerServer, error) {
 			sandboxes:       make(map[string]*sandbox.Sandbox),
 		},
 		config: config,
-	}, nil
+	}
+
+	// StreamService stuff
+	//bindAddress := net.ParseIP(config.StreamAddress)
+	//if bindAddress == nil {
+	//	bindAddress, err = knet.ChooseBindAddress(net.IP{0, 0, 0, 0})
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//}
+	//c.bindAddress = bindAddress.String()
+
+	//_, err = net.LookupPort("tcp", config.StreamPort)
+	//if err != nil {
+	//	return nil, err
+	//}
+
+	// Prepare streaming server
+	//streamServerConfig := streaming.DefaultConfig
+	//streamServerConfig.Addr = net.JoinHostPort(bindAddress.String(), config.StreamPort)
+	//c.stream.runtimeServer = c
+	//c.stream.streamServer, err = streaming.NewServer(streamServerConfig, c.stream)
+	//if err != nil {
+	//	return nil, fmt.Errorf("unable to create streaming server")
+	//}
+
+	//c.stream.streamServerCloseCh = make(chan struct{})
+	//go func() {
+	//	defer close(c.stream.streamServerCloseCh)
+	//	if err := c.stream.streamServer.Start(true); err != nil {
+	//		logrus.Errorf("Failed to start streaming server: %v", err)
+	//	}
+	//}()
+
+	return c, nil
 }
 
 // Update makes changes to the server's state (lists of pods and containers) to
@@ -759,3 +805,28 @@ func (c *ContainerServer) LibcontainerStats(ctr *oci.Container) (*libcontainer.S
 	}
 	return container.Stats()
 }
+
+//// GetAttach returns attach stream request
+//func (c *ContainerServer) GetAttach(req *pb.AttachRequest) (*pb.AttachResponse, error) {
+//	fmt.Printf("%+v\n", req)
+//	return c.stream.streamServer.GetAttach(req)
+//}
+//
+//// StopStreamServer stops the stream server
+//func (s *ContainerServer) StopStreamServer() error {
+//	return s.stream.streamServer.Stop()
+//}
+//
+//// StreamingServerCloseChan returns the close channel for the streaming server
+//func (s *ContainerServer) StreamingServerCloseChan() chan struct{} {
+//	return s.stream.streamServerCloseCh
+//}
+//
+//// GetExec returns exec stream request
+//func (s *ContainerServer) GetExec(req *pb.ExecRequest) (*pb.ExecResponse, error) {
+//	return s.stream.streamServer.GetExec(req)
+//}
+//// GetPortForward returns port forward stream request
+//func (s *ContainerServer) GetPortForward(req *pb.PortForwardRequest) (*pb.PortForwardResponse, error) {
+//	return s.stream.streamServer.GetPortForward(req)
+//}
