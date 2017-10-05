@@ -5,6 +5,7 @@ import (
 	"io"
 	"strings"
 	"syscall"
+	"os"
 
 	cp "github.com/containers/image/copy"
 	dockerarchive "github.com/containers/image/docker/archive"
@@ -20,6 +21,8 @@ import (
 	"github.com/kubernetes-incubator/cri-o/libpod/common"
 	"github.com/kubernetes-incubator/cri-o/libpod/images"
 	"github.com/pkg/errors"
+	"github.com/containers/image/docker/reference"
+	"github.com/containers/image/pkg/sysregistries"
 )
 
 // Runtime API
@@ -56,6 +59,128 @@ type CopyOptions struct {
 
 	// SigningPolicyPath this points to a alternative signature policy file, used mainly for testing
 	SignaturePolicyPath string
+}
+type DecomposedImage struct {
+	registry string
+	imageName string
+	tag string
+	hasRegistry bool
+	transport string
+}
+
+func (d DecomposedImage) assembleFqName() string {
+	return fmt.Sprintf("%s%s/%s:%s", d.transport, d.registry, d.imageName, d.tag)
+}
+
+type KpodImage struct {
+	Name string
+	fqname string
+	hasImageLocal bool
+	DecomposedImage
+	Runtime
+}
+
+func (r *Runtime) NewImage(name string) KpodImage{
+	return KpodImage{
+		Name: name,
+		Runtime: *r,
+	}
+}
+func (k KpodImage) GetFQName() (string, error)  {
+	// Check if the fqname has already been found
+	if k.fqname != "" {
+		return k.fqname, nil
+	}
+	// Decompose will set the private fqname
+	_, err := k.Decompose()
+	if err != nil {
+		return "", err
+	}
+	return k.fqname, nil
+}
+
+func (k KpodImage) Decompose() (DecomposedImage,error){
+	dImage := DecomposedImage{transport: "docker://"}
+	var imageError = fmt.Sprintf("unable to parse '%s'\n", k.Name)
+	imgRef, err := reference.Parse(k.Name)
+	if err != nil {
+		return dImage, errors.Wrapf(err, imageError)
+	}
+	tagged, isTagged := imgRef.(reference.NamedTagged)
+	dImage.tag = "latest"
+	if isTagged {
+		dImage.tag = tagged.Tag()
+	}
+	dImage.hasRegistry = true
+	registry := reference.Domain(imgRef.(reference.Named))
+	if registry == "" {
+		dImage.hasRegistry = false
+	}
+	dImage.imageName = reference.Path(imgRef.(reference.Named))
+	if dImage.hasRegistry {
+		k.fqname = dImage.assembleFqName()
+		return dImage, nil
+	} else {
+		// No registry means we check the globals registries configuration file
+		// and assemble a list of candidate sources to try
+		registryConfigPath := ""
+		envOverride := os.Getenv("REGISTRIES_CONFIG_PATH")
+		if len(envOverride) > 0 {
+			registryConfigPath = envOverride
+		}
+		searchRegistries, err := sysregistries.GetRegistries(&types.SystemContext{SystemRegistriesConfPath: registryConfigPath})
+		if err != nil {
+			return dImage, errors.Errorf("unable to parse the registries.conf file and"+
+				" the image name '%s' is incomplete.", k.Name)
+		}
+		for _, searchRegistry := range searchRegistries {
+			dImage.registry = searchRegistry
+			pullRef, err := alltransports.ParseImageName(dImage.assembleFqName())
+			if err != nil {
+				return dImage, errors.Errorf("unable to parse '%s'", dImage.assembleFqName())
+			}
+			// trying getting this manifest pullRef.DockerReference().String()
+			_, _, err = pullRef.(types.ImageSource).GetManifest()
+			if err == nil {
+				k.fqname = dImage.assembleFqName()
+				return dImage, nil
+			}
+		}
+	}
+	return dImage, errors.Errorf("unable to decompose image %s", k.Name)
+}
+
+func (k KpodImage) HasImageLocal() bool{
+	_, err := k.Runtime.GetImage(k.Name)
+	if err == nil {
+		return true
+	}
+	_, err = k.Runtime.GetImage(k.fqname)
+	if err == nil {
+		return true
+	}
+	return false
+}
+
+func (k KpodImage) HasLatest() (bool, error) {
+	if !k.HasImageLocal() {
+		return false, nil
+	}
+	fqname, err := k.GetFQName()
+	if err != nil{
+		return false, err
+	}
+	pullRef, err := alltransports.ParseImageName(fqname)
+	if err != nil {
+		return false, err
+	}
+	_, _, err = pullRef.(types.ImageSource).GetManifest()
+	if err != nil {
+		return false, err
+	}
+	return false, nil
+
+
 }
 
 // Image API
