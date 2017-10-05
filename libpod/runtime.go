@@ -10,6 +10,8 @@ import (
 	"github.com/ulule/deepcopier"
 )
 
+//var Transports  ["dir:", "docker://", DockerArchive, "docker-daemon:", "oci:", "ostree:"]
+
 // A RuntimeOption is a functional option which alters the Runtime created by
 // NewRuntime
 type RuntimeOption func(*Runtime) error

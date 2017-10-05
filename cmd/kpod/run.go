@@ -30,7 +30,7 @@ func runCmd(c *cli.Context) error {
 		return errors.Wrapf(err, "error creating libpod runtime")
 	}
 
-	createConfig, err := parseCreateOpts(c)
+	createConfig, err := parseCreateOpts(c, runtime)
 	if err != nil {
 		return err
 	}

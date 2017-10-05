@@ -123,15 +123,6 @@ type RuntimeServer interface {
 // RuntimeServer.ContainerMetadata, RuntimeContainerMetadata.SetMountLabel,
 // and RuntimeServer.SetContainerMetadata.
 type RuntimeContainerMetadata struct {
-	/*
-		// Pod is true if this is the pod's infrastructure container.
-		Pod bool `json:"pod,omitempty"` // Applicable to both PodSandboxes and Containers
-		// The pod's name and ID, kept for use by upper layers in determining
-		// which containers belong to which pods.
-		PodName string `json:"pod-name"` // Applicable to both PodSandboxes and Containers, mandatory
-		PodID   string `json:"pod-id"`   // Applicable to both PodSandboxes and Containers, mandatory
-	*/
-
 	// The provided name and the ID of the image that was used to
 	// instantiate the container.
 	ImageName string `json:"image-name"` // Applicable to both PodSandboxes and Containers
