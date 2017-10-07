@@ -31,6 +31,7 @@ func main() {
 	app.Version = v
 
 	app.Commands = []cli.Command{
+		createCommand,
 		diffCommand,
 		exportCommand,
 		historyCommand,
@@ -48,6 +49,7 @@ func main() {
 		renameCommand,
 		rmCommand,
 		rmiCommand,
+		runCommand,
 		saveCommand,
 		statsCommand,
 		stopCommand,
