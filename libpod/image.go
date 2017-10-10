@@ -34,10 +34,10 @@ const (
 )
 
 var (
-	// DockerArchive is the transport we prepend to an image name
+	// DockerArchive is the Transport we prepend to an image name
 	// when saving to docker-archive
 	DockerArchive = dockerarchive.Transport.Name()
-	// OCIArchive is the transport we prepend to an image name
+	// OCIArchive is the Transport we prepend to an image name
 	// when saving to oci-archive
 	OCIArchive = ociarchive.Transport.Name()
 )
@@ -49,35 +49,45 @@ type CopyOptions struct {
 	// archive.Gzip is recommended.
 	Compression archive.Compression
 	// DockerRegistryOptions encapsulates settings that affect how we
-	// connect or authenticate to a remote registry to which we want to
+	// connect or authenticate to a remote Registry to which we want to
 	// push the image.
 	common.DockerRegistryOptions
 	// SigningOptions encapsulates settings that control whether or not we
 	// strip or add signatures to the image when pushing (uploading) the
-	// image to a registry.
+	// image to a Registry.
 	common.SigningOptions
 
 	// SigningPolicyPath this points to a alternative signature policy file, used mainly for testing
 	SignaturePolicyPath string
 }
 type DecomposedImage struct {
-	registry string
-	imageName string
-	tag string
-	hasRegistry bool
-	transport string
+	Registry    string
+	ImageName   string
+	Tag         string
+	HasRegistry bool
+	Transport   string
 }
 
-func (d DecomposedImage) assembleFqName() string {
-	return fmt.Sprintf("%s%s/%s:%s", d.transport, d.registry, d.imageName, d.tag)
+func (k *KpodImage) assembleFqName() string {
+	return fmt.Sprintf("%s/%s:%s", k.Registry, k.ImageName, k.Tag)
+}
+
+func (k *KpodImage ) assembleFqNameTransport() string {
+	return fmt.Sprintf("%s%s/%s:%s", k.Transport, k.Registry, k.ImageName, k.Tag)
 }
 
 type KpodImage struct {
-	Name string
-	fqname string
-	hasImageLocal bool
-	DecomposedImage
+	Name           string
+	fqname         string
+	hasImageLocal  bool
 	Runtime
+	Registry       string
+	ImageName      string
+	Tag            string
+	HasRegistry    bool
+	Transport      string
+	beenDecomposed bool
+	PullName       string
 }
 
 func (r *Runtime) NewImage(name string) KpodImage{
@@ -86,83 +96,98 @@ func (r *Runtime) NewImage(name string) KpodImage{
 		Runtime: *r,
 	}
 }
-func (k KpodImage) GetFQName() (string, error)  {
+
+func (k *KpodImage) GetFQName() (string, error)  {
 	// Check if the fqname has already been found
 	if k.fqname != "" {
 		return k.fqname, nil
 	}
-	// Decompose will set the private fqname
-	_, err := k.Decompose()
+	err := k.Decompose()
 	if err != nil {
 		return "", err
 	}
+	k.fqname = k.assembleFqName()
 	return k.fqname, nil
 }
 
-func (k KpodImage) Decompose() (DecomposedImage,error){
-	dImage := DecomposedImage{transport: "docker://"}
+func (k *KpodImage) findImageOnRegistry() ( error) {
+	searchRegistries, err := GetRegistries()
+
+	if err != nil {
+		return errors.Wrapf(err, " the image name '%s' is incomplete.", k.Name)
+	}
+
+	for _, searchRegistry := range searchRegistries {
+		k.Registry = searchRegistry
+		pullRef, err := alltransports.ParseImageName(k.assembleFqNameTransport())
+		if err != nil {
+			return errors.Errorf("unable to parse '%s'", k.assembleFqName())
+		}
+		// trying getting this manifest pullRef.DockerReference().String()
+		imageSource, err := pullRef.NewImageSource(nil)
+		if err != nil {
+			return errors.Errorf("unable to create new image source")
+		}
+		_, _, err = imageSource.GetManifest()
+		if err == nil {
+			k.fqname = k.assembleFqName()
+			return nil
+		}
+	}
+	return errors.Errorf("unable to find image on any configured registries")
+
+}
+
+func (k *KpodImage) Decompose() (error){
+	k.beenDecomposed = true
+	k.Transport = "docker://"
 	var imageError = fmt.Sprintf("unable to parse '%s'\n", k.Name)
 	imgRef, err := reference.Parse(k.Name)
 	if err != nil {
-		return dImage, errors.Wrapf(err, imageError)
+		return errors.Wrapf(err, imageError)
 	}
 	tagged, isTagged := imgRef.(reference.NamedTagged)
-	dImage.tag = "latest"
+	k.Tag = "latest"
 	if isTagged {
-		dImage.tag = tagged.Tag()
+		k.Tag = tagged.Tag()
 	}
-	dImage.hasRegistry = true
+	k.HasRegistry = true
 	registry := reference.Domain(imgRef.(reference.Named))
 	if registry == "" {
-		dImage.hasRegistry = false
+		k.HasRegistry = false
 	}
-	dImage.imageName = reference.Path(imgRef.(reference.Named))
-	if dImage.hasRegistry {
-		k.fqname = dImage.assembleFqName()
-		return dImage, nil
-	} else {
-		// No registry means we check the globals registries configuration file
-		// and assemble a list of candidate sources to try
-		registryConfigPath := ""
-		envOverride := os.Getenv("REGISTRIES_CONFIG_PATH")
-		if len(envOverride) > 0 {
-			registryConfigPath = envOverride
-		}
-		searchRegistries, err := sysregistries.GetRegistries(&types.SystemContext{SystemRegistriesConfPath: registryConfigPath})
-		if err != nil {
-			return dImage, errors.Errorf("unable to parse the registries.conf file and"+
-				" the image name '%s' is incomplete.", k.Name)
-		}
-		for _, searchRegistry := range searchRegistries {
-			dImage.registry = searchRegistry
-			pullRef, err := alltransports.ParseImageName(dImage.assembleFqName())
-			if err != nil {
-				return dImage, errors.Errorf("unable to parse '%s'", dImage.assembleFqName())
-			}
-			// trying getting this manifest pullRef.DockerReference().String()
-			_, _, err = pullRef.(types.ImageSource).GetManifest()
-			if err == nil {
-				k.fqname = dImage.assembleFqName()
-				return dImage, nil
-			}
-		}
+	k.ImageName = reference.Path(imgRef.(reference.Named))
+	if k.HasRegistry {
+		k.fqname = k.assembleFqName()
+		k.PullName = k.assembleFqName()
+		return nil
 	}
-	return dImage, errors.Errorf("unable to decompose image %s", k.Name)
+	// No Registry means we check the globals registries configuration file
+	// and assemble a list of candidate sources to try
+	//searchRegistries, err := GetRegistries()
+	err = k.findImageOnRegistry()
+	k.PullName = k.assembleFqName()
+	if err != nil {
+		return errors.Wrapf(err, " the image name '%s' is incomplete.", k.Name)
+	}
+	return nil
 }
 
-func (k KpodImage) HasImageLocal() bool{
+func (k *KpodImage) HasImageLocal() bool{
 	_, err := k.Runtime.GetImage(k.Name)
 	if err == nil {
 		return true
 	}
-	_, err = k.Runtime.GetImage(k.fqname)
+	fqname, _ := k.GetFQName()
+
+	_, err = k.Runtime.GetImage(fqname)
 	if err == nil {
 		return true
 	}
 	return false
 }
 
-func (k KpodImage) HasLatest() (bool, error) {
+func (k *KpodImage) HasLatest() (bool, error) {
 	if !k.HasImageLocal() {
 		return false, nil
 	}
@@ -179,10 +204,33 @@ func (k KpodImage) HasLatest() (bool, error) {
 		return false, err
 	}
 	return false, nil
-
-
 }
 
+func (k *KpodImage) Pull() error {
+	// If the image hasn't been decomposed yet
+	if !k.beenDecomposed {
+		err := k.Decompose()
+		if err != nil {
+			return err
+		}
+	}
+	k.Runtime.PullImage(k.PullName, false,  k.Runtime.config.SignaturePolicyPath, os.Stdout)
+	return nil
+}
+
+func GetRegistries() ([]string, error){
+	registryConfigPath := ""
+	envOverride := os.Getenv("REGISTRIES_CONFIG_PATH")
+	if len(envOverride) > 0 {
+		registryConfigPath = envOverride
+	}
+	searchRegistries, err := sysregistries.GetRegistries(&types.SystemContext{SystemRegistriesConfPath: registryConfigPath})
+	if err != nil {
+		return nil, errors.Errorf("unable to parse the registries.conf file")
+	}
+	return searchRegistries, nil
+
+}
 // Image API
 
 // ImageFilter is a function to determine whether an image is included in
@@ -191,7 +239,7 @@ func (k KpodImage) HasLatest() (bool, error) {
 type ImageFilter func(*storage.Image) bool
 
 // PullImage pulls an image from configured registries
-// By default, only the latest tag (or a specific tag if requested) will be
+// By default, only the latest Tag (or a specific Tag if requested) will be
 // pulled. If allTags is true, all tags for the requested image will be pulled.
 // Signature validation will be performed if the Runtime has been appropriately
 // configured
@@ -358,7 +406,7 @@ func (r *Runtime) PushImage(source string, destination string, options CopyOptio
 	return nil
 }
 
-// TagImage adds a tag to the given image
+// TagImage adds a Tag to the given image
 func (r *Runtime) TagImage(image *storage.Image, tag string) error {
 	r.lock.Lock()
 	defer r.lock.Unlock()
@@ -380,7 +428,7 @@ func (r *Runtime) TagImage(image *storage.Image, tag string) error {
 	return r.store.SetNames(image.ID, tags)
 }
 
-// UntagImage removes a tag from the given image
+// UntagImage removes a Tag from the given image
 func (r *Runtime) UntagImage(image *storage.Image, tag string) error {
 	r.lock.Lock()
 	defer r.lock.Unlock()
