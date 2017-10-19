@@ -8,7 +8,6 @@ import (
 	"strings"
 	"syscall"
 	"time"
-	"os"
 
 	cp "github.com/containers/image/copy"
 	dockerarchive "github.com/containers/image/docker/archive"
@@ -98,19 +97,15 @@ type KpodImage struct {
 	PullName       string
 }
 
+// NewImage creates a new image object based on its name
 func (r *Runtime) NewImage(name string) KpodImage {
 	return KpodImage{
 		Name:    name,
 		Runtime: *r,
 	}
 }
-
+// GetImageID returns the image ID of the image
 func (k *KpodImage) GetImageID() (string, error) {
-	//ref, err := istorage.Transport.ParseStoreReference(r.storageImageServer.store, imageID)
-	//store, err := k.Runtime.GetStorageService(&k.Runtime)
-	//if err != nil{
-	//	return err
-	//}
 	if k.ID != "" {
 		return k.ID, nil
 	}
@@ -119,18 +114,9 @@ func (k *KpodImage) GetImageID() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	//ref, err := is.Transport.ParseStoreReference(k.Runtime.store, image)
-	//if err != nil {
-	//	return "", err
-	//}
-	//imgRef, err := ref.NewImage(nil)
-	//if err != nil {
-	//	return ""err
-	//}
-	//fmt.Println(imgRef.OCIConfig())
 	return img.ID, nil
 }
-
+// GetFQName returns the fully qualified image name if it can be determined
 func (k *KpodImage) GetFQName() (string, error) {
 	// Check if the fqname has already been found
 	if k.fqname != "" {
@@ -159,25 +145,11 @@ func (k *KpodImage) findImageOnRegistry() error {
 			return nil
 
 		}
-		//pullRef, err := alltransports.ParseImageName(k.assembleFqNameTransport())
-		//if err != nil {
-		//	return errors.Errorf("unable to parse '%s'", k.assembleFqName())
-		//}
-		// trying getting this manifest pullRef.DockerReference().String()
-		//imageSource, err := pullRef.NewImageSource(nil)
-		//if err != nil {
-		//	return errors.Errorf("unable to create new image source")
-		//}
-		//_, _, err = imageSource.GetManifest()
-		//if err == nil {
-		//	k.fqname = k.assembleFqName()
-		//	return nil
-		//}
 	}
 	return errors.Errorf("unable to find image on any configured registries")
 
 }
-
+// GetManifest tries to GET an images manifest, returns nil on success and err on failure
 func (k *KpodImage) GetManifest() error {
 	pullRef, err := alltransports.ParseImageName(k.assembleFqNameTransport())
 	if err != nil {
@@ -195,15 +167,7 @@ func (k *KpodImage) GetManifest() error {
 
 }
 
-func stringInSlice(s string, sl []string) bool {
-	for _, i := range sl {
-		if i == s {
-			return true
-		}
-	}
-	return false
-}
-
+//Decompose breaks up an image name into its parts
 func (k *KpodImage) Decompose() error {
 	k.beenDecomposed = true
 	k.Transport = "docker://"
@@ -246,7 +210,7 @@ func (k *KpodImage) Decompose() error {
 		if err != nil {
 			return nil
 		}
-		if stringInSlice(k.Registry, registries) {
+		if StringInSlice(k.Registry, registries) {
 			return nil
 		} else {
 			// We need to check if the registry name is legit
@@ -270,6 +234,7 @@ func (k *KpodImage) Decompose() error {
 	return nil
 }
 
+// HasImageLocal returns a bool true if the image is already pulled
 func (k *KpodImage) HasImageLocal() bool {
 	_, err := k.Runtime.GetImage(k.Name)
 	if err == nil {
@@ -283,7 +248,7 @@ func (k *KpodImage) HasImageLocal() bool {
 	}
 	return false
 }
-
+// HasLatest determines if we have the latest image local
 func (k *KpodImage) HasLatest() (bool, error) {
 	if !k.HasImageLocal() {
 		return false, nil
@@ -303,6 +268,7 @@ func (k *KpodImage) HasLatest() (bool, error) {
 	return false, nil
 }
 
+// Pull is a wrapper function to pull and image
 func (k *KpodImage) Pull() error {
 	// If the image hasn't been decomposed yet
 	if !k.beenDecomposed {
@@ -315,6 +281,7 @@ func (k *KpodImage) Pull() error {
 	return nil
 }
 
+// GetRegistries gets the searchable registries from the global registration file.
 func GetRegistries() ([]string, error) {
 	registryConfigPath := ""
 	envOverride := os.Getenv("REGISTRIES_CONFIG_PATH")
@@ -328,6 +295,7 @@ func GetRegistries() ([]string, error) {
 	return searchRegistries, nil
 }
 
+// GetInsecureRegistries obtains the list of inseure registries from the global registration file.
 func GetInsecureRegistries() ([]string, error) {
 	registryConfigPath := ""
 	envOverride := os.Getenv("REGISTRIES_CONFIG_PATH")
@@ -341,6 +309,7 @@ func GetInsecureRegistries() ([]string, error) {
 	return registries, nil
 }
 
+// getRegistries returns both searchable and insecure registries from the global conf file.
 func getRegistries() ([]string, error) {
 	var r []string
 	registries, err := GetRegistries()

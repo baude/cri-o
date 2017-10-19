@@ -9,7 +9,6 @@ import (
 	pb "k8s.io/kubernetes/pkg/kubelet/apis/cri/v1alpha1/runtime"
 	"strings"
 
-	"github.com/containers/image/types"
 	"github.com/docker/go-units"
 	"github.com/kubernetes-incubator/cri-o/libpod"
 	"golang.org/x/sys/unix"
@@ -151,36 +150,49 @@ func createCmd(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	ctr, err := runtime.NewContainer(runtimeSpec)
+
+	imageName, err := createImage.GetFQName()
+	if err != nil {
+		return err
+	}
+	fmt.Println(imageName)
+	imageID, err := createImage.GetImageID()
+	if err != nil {
+		return err
+	}
+	fmt.Println(imageID)
+	ctr, err := runtime.NewContainer(runtimeSpec, libpod.WithRootFSFromImage(imageID, imageName, false) )
 	if err != nil {
 		return err
 	}
 
+	if err := ctr.Create(); err != nil{
+		return err
+	}
 	// Create the ContainerStorage
-	storageService, err := runtime.GetStorageService(runtime)
-	if err != nil {
-		return err
-	}
+	//storageService, err := runtime.GetStorageService(runtime)
+	//if err != nil {
+	//	return err
+	//}
 
-	k := runtime.NewImage(createConfig.image)
-	iid, err := k.GetImageID()
-	if err != nil {
-		return err
-	}
+	//k := runtime.NewImage(createConfig.image)
+	//iid, err := k.GetImageID()
+	//if err != nil {
+	//	return err
+	//}
 
 	// Create the container storage space
-	containerConfig, err := storageService.CreateContainerStorage(&types.SystemContext{}, createConfig.image, iid, ctr.Name(), ctr.ID(), "system_u:object_r:container_file_t:s0")
-	if err != nil {
-		return err
-	}
-	mountPoint, err := storageService.StartContainer(containerConfig.ID)
+	//containerConfig, err := storageService.CreateContainerStorage(&types.SystemContext{}, createConfig.image, iid, ctr.Name(), ctr.ID(), "system_u:object_r:container_file_t:s0")
+	//if err != nil {
+	//	return err
+	//}
+	//mountPoint, err := storageService.StartContainer(containerConfig.ID)
 	// If user wants the container ID written to a file
+
 	if c.String("cid-file") != ""{
 		libpod.WriteFile(ctr.ID(), c.String("cid-file"))
 		return nil
 	}
-	fmt.Println(mountPoint)
-	fmt.Printf("%+v\n", containerConfig)
 	fmt.Printf("%s\n", ctr.ID())
 
 	return nil
