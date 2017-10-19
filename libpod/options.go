@@ -232,7 +232,21 @@ func WithRootFSFromPath(path string) CtrCreateOption {
 // other configuration from the image will be added to the config
 // TODO: Replace image name and ID with a libpod.Image struct when that is finished
 func WithRootFSFromImage(imageID string, imageName string, useImageConfig bool) CtrCreateOption {
-	return ctrNotImplemented
+	return func(ctr *Container) error {
+		if ctr.valid {
+			return ErrCtrFinalized
+		}
+
+		if ctr.config.rootfsDir != nil || ctr.config.rootfsImageID != nil || ctr.config.rootfsImageName != nil {
+			return fmt.Errorf("container already configured to with rootfs!")
+		}
+
+		ctr.config.rootfsImageID = imageID
+		ctr.config.rootfsImageName = imageName
+		ctr.config.useImageConfig = useImageConfig
+
+		return nil
+	}
 }
 
 // WithSharedNamespaces sets a container to share namespaces with another
@@ -247,7 +261,7 @@ func WithSharedNamespaces(from *Container, namespaces map[string]string) CtrCrea
 // WithPod adds the container to a pod
 func (r *Runtime) WithPod(pod *Pod) CtrCreateOption {
 	return func(ctr *Container) error {
-		if !ctr.valid {
+		if ctr.valid {
 			return ErrCtrFinalized
 		}
 
@@ -285,7 +299,7 @@ func WithAnnotations(annotations map[string]string) CtrCreateOption {
 // WithName sets the container's name
 func WithName(name string) CtrCreateOption {
 	return func(ctr *Container) error {
-		if !ctr.valid {
+		if ctr.valid {
 			return ErrCtrFinalized
 		}
 
