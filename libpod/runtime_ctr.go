@@ -41,6 +41,11 @@ func (r *Runtime) NewContainer(spec *spec.Spec, options ...CtrCreateOption) (*Co
 	ctr.state = ContainerStateConfigured
 	ctr.runtime = r
 
+	if err := ctr.setupStorage(); err != nil {
+		return nil, errors.Wrapf(err, "error configuring storage for container")
+	}
+	// TODO: once teardownStorage is implemented, do a defer here that tears down storage is AddContainer fails
+
 	if err := r.state.AddContainer(ctr); err != nil {
 		// If we joined a pod, remove ourself from it
 		if ctr.pod != nil {
