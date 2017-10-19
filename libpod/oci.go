@@ -59,6 +59,7 @@ func newOCIRuntime(name string, path string, conmonPath string, conmonEnv []stri
 	runtime.conmonPath = conmonPath
 	runtime.conmonEnv = conmonEnv
 	runtime.cgroupManager = cgroupManager
+	runtime.exitsDir = exitsDir
 	runtime.logSizeMax = logSizeMax
 	runtime.noPivot = noPivotRoot
 
