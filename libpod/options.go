@@ -241,8 +241,8 @@ func WithRootFSFromImage(imageID string, imageName string, useImageConfig bool) 
 			return fmt.Errorf("container already configured to with rootfs!")
 		}
 
-		ctr.config.rootfsImageID = imageID
-		ctr.config.rootfsImageName = imageName
+		ctr.config.rootfsImageID = &imageID
+		ctr.config.rootfsImageName = &imageName
 		ctr.config.useImageConfig = useImageConfig
 
 		return nil

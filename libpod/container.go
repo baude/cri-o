@@ -166,7 +166,7 @@ func (c *Container) setupImageRootfs() error {
 	// TODO SELinux mount label
 	containerInfo, err := c.runtime.storageService.CreateContainerStorage(c.runtime.imageContext, *c.config.rootfsImageName, *c.config.rootfsImageID, c.config.name, c.config.id, "")
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "error creating container storage")
 	}
 
 	c.useContainerStorage = true
