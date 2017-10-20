@@ -263,6 +263,19 @@ func WithRootFSFromImage(imageID string, imageName string, useImageConfig bool) 
 	}
 }
 
+// WithStdin keeps stdin on the container open to allow interaction
+func WithStdin() CtrCreateOption {
+	return func(ctr *Container) error {
+		if ctr.valid {
+			return ErrCtrFinalized
+		}
+
+		ctr.config.Stdin = true
+
+		return nil
+	}
+}
+
 // WithSharedNamespaces sets a container to share namespaces with another
 // container. If the from container belongs to a pod, the new container will
 // be added to the pod.

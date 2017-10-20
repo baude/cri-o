@@ -88,6 +88,8 @@ type containerConfig struct {
 	RootfsImageID   string `json:"rootfsImageID,omitempty"`
 	RootfsImageName string `json:"rootfsImageName,omitempty"`
 	UseImageConfig  bool   `json:"useImageConfig"`
+	// Whether to keep container STDIN open
+	Stdin bool
 	// Static directory for container content that will persist across
 	// reboot
 	StaticDir string `json:"staticDir"`

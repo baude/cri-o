@@ -1,6 +1,7 @@
 package libpod
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -88,6 +89,8 @@ func createUnitName(prefix string, name string) string {
 // TODO terminal support for container
 // Presently just ignoring conmon opts related to it
 func (r *OCIRuntime) createContainer(ctr *Container, cgroupParent string) error {
+	var stderrBuf bytes.Buffer
+
 	parentPipe, childPipe, err := newPipe()
 	if err != nil {
 		return errors.Wrapf(err, "error creating socket pair")
@@ -114,6 +117,11 @@ func (r *OCIRuntime) createContainer(ctr *Container, cgroupParent string) error 
 	// The default also likely shouldn't be this
 	args = append(args, "-l", filepath.Join(ctr.config.StaticDir, "ctr.log"))
 	args = append(args, "--exit-dir", r.exitsDir)
+	if ctr.config.Spec.Process.Terminal {
+		args = append(args, "-t")
+	} else if ctr.config.Stdin {
+		args = append(args, "-i")
+	}
 	if r.logSizeMax >= 0 {
 		args = append(args, "--log-size-max", fmt.Sprintf("%v", r.logSizeMax))
 	}
@@ -134,6 +142,9 @@ func (r *OCIRuntime) createContainer(ctr *Container, cgroupParent string) error 
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+	if c.terminal {
+		cmd.Stderr = &stderrBuf
+	}
 
 	cmd.ExtraFiles = append(cmd.ExtraFiles, childPipe, childStartPipe)
 	// 0, 1 and 2 are stdin, stdout and stderr
