@@ -211,10 +211,6 @@ func (c *Container) Create() (err error) {
 		return errors.Wrapf(ErrCtrExists, "container %s has already been created in runtime", c.ID())
 	}
 
-	if !c.state.Mounted {
-		return errors.Wrapf(ErrInternal, "container root filesystem is not mounted")
-	}
-
 	// If using containers/storage, mount the container
 	if !c.config.RootfsFromImage {
 		// TODO implemented directory-based root filesystems
