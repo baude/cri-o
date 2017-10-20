@@ -5,6 +5,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
+	"github.com/kubernetes-incubator/cri-o/libpod"
 )
 
 var runDescription = "Runs a command in a new container from the given image"
@@ -25,7 +26,7 @@ func runCmd(c *cli.Context) error {
 	if err := validateFlags(c, createFlags); err != nil {
 		return err
 	}
-	runtime, err := getRuntime(c)
+	runtime, err := libpod.NewRuntime()
 	if err != nil {
 		return errors.Wrapf(err, "error creating libpod runtime")
 	}
@@ -44,10 +45,47 @@ func runCmd(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
+	createImage := runtime.NewImage(createConfig.image)
 
-	// Should we also call ctr.Create() to make the container in runc?
+	if !createImage.HasImageLocal() {
+		// The image wasnt found by the user input'd name or its fqname
+		// Pull the image
+		fmt.Printf("Trying to pull %s...", createImage.PullName)
+		createImage.Pull()
+	}
+
+	runtimeSpec, err = createConfigToOCISpec(createConfig)
+	if err != nil {
+		return err
+	}
+
+	imageName, err := createImage.GetFQName()
+	if err != nil {
+		return err
+	}
+
+	imageID, err := createImage.GetImageID()
+	if err != nil {
+		return err
+	}
+
+	ctr, err = runtime.NewContainer(runtimeSpec, libpod.WithRootFSFromImage(imageID, imageName, false) )
+	if err != nil {
+		return err
+	}
+
+	if err := ctr.Create(); err != nil{
+		return err
+	}
+
+	if c.String("cid-file") != ""{
+		libpod.WriteFile(ctr.ID(), c.String("cid-file"))
+		return nil
+	}
 
 	fmt.Printf("%s\n", ctr.ID())
+
+
 
 	return nil
 }

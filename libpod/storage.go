@@ -2,7 +2,6 @@ package libpod
 
 import (
 	"encoding/json"
-	"fmt"
 	"time"
 
 	istorage "github.com/containers/image/storage"
@@ -154,63 +153,16 @@ func (r *storageService) CreateContainerStorage(systemContext *types.SystemConte
 	if containerName == "" {
 		return ContainerInfo{}, ErrInvalidContainerName
 	}
-	//if metadataName == "" {
-	//	metadataName = containerName
-	//}
-	fmt.Println("99")
 	//// Check if we have the specified image.
 	ref, err := istorage.Transport.ParseStoreReference(r.storageImageServer.store, imageName)
 	if err != nil {
 		return ContainerInfo{}, err
 	}
-	//	// Maybe it's some other transport's copy of the image?
-	//	otherRef, err2 := alltransports.ParseImageName(imageName)
-	//	if err2 == nil && otherRef.DockerReference() != nil {
-	//		ref, err = istorage.Transport.ParseStoreReference(r.storageImageServer.GetStore(), otherRef.DockerReference().Name())
-	//	}
-	//	if err != nil {
-	//		// Maybe the image ID is sufficient?
-	//		ref, err = istorage.Transport.ParseStoreReference(r.storageImageServer.GetStore(), "@"+imageID)
-	//		if err != nil {
-	//			return ContainerInfo{}, err
-	//		}
-	//	}
-	//}
-	fmt.Println("100")
 	img, err := istorage.Transport.GetStoreImage(r.storageImageServer.store, ref)
 	if err != nil {
 		return ContainerInfo{}, err
 	}
-	//if img == nil && errors.Cause(err) == storage.ErrImageUnknown && imageName == r.pauseImage {
-	//	image := imageID
-	//	if imageName != "" {
-	//		image = imageName
-	//	}
-	//	if image == "" {
-	//		return ContainerInfo{}, ErrInvalidImageName
-	//	}
-	//	logrus.Debugf("couldn't find image %q, retrieving it", image)
-	//	ref, err = r.storageImageServer.PullImage(systemContext, image, options)
-	//	if err != nil {
-	//		return ContainerInfo{}, err
-	//	}
-	//	img, err = istorage.Transport.GetStoreImage(r.storageImageServer.GetStore(), ref)
-	//	if err != nil {
-	//		return ContainerInfo{}, err
-	//	}
-	//	logrus.Debugf("successfully pulled image %q", image)
-	//}
-	//if img == nil && errors.Cause(err) == storage.ErrImageUnknown {
-	//	if imageID == "" {
-	//		return ContainerInfo{}, fmt.Errorf("image %q not present in image store", imageName)
-	//	}
-	//	if imageName == "" {
-	//		return ContainerInfo{}, fmt.Errorf("image with ID %q not present in image store", imageID)
-	//	}
-	//	return ContainerInfo{}, fmt.Errorf("image %q with ID %q not present in image store", imageName, imageID)
-	//}
 
-	fmt.Println("101")
 	// Pull out a copy of the image's configuration.
 	image, err := ref.NewImage(systemContext)
 	if err != nil {
@@ -236,11 +188,8 @@ func (r *storageService) CreateContainerStorage(systemContext *types.SystemConte
 		ContainerName: containerName,
 		CreatedAt:     time.Now().Unix(),
 		MountLabel:    mountLabel,
-		//MetadataName:  metadataName,
-		//UID:           uid,
-		//Namespace:     namespace,
-		//Attempt:       attempt,
 	}
+
 	mdata, err := json.Marshal(&metadata)
 	if err != nil {
 		return ContainerInfo{}, err
@@ -248,10 +197,6 @@ func (r *storageService) CreateContainerStorage(systemContext *types.SystemConte
 
 	// Build the container.
 	names := []string{metadata.ContainerName}
-	//if metadata.Pod {
-	//	names = append(names, metadata.PodName)
-	//}
-	//container, err := r.storageImageServer.GetStore().CreateContainer(containerID, names, img.ID, "", string(mdata), nil)
 	container, err := r.storageImageServer.store.CreateContainer(containerID, names, img.ID, "", string(mdata), nil)
 	if err != nil {
 		//if metadata.Pod {
@@ -261,20 +206,13 @@ func (r *storageService) CreateContainerStorage(systemContext *types.SystemConte
 
 		return ContainerInfo{}, err
 	}
-	//if metadata.Pod {
-	//	logrus.Debugf("created pod sandbox %q", container.ID)
-	//} else {
 	logrus.Debugf("created container %q", container.ID)
-	//}
 
 	// If anything fails after this point, we need to delete the incomplete
 	// container before returning.
 	defer func() {
 		if err != nil {
 			if err2 := r.storageImageServer.store.DeleteContainer(container.ID); err2 != nil {
-				//if metadata.Pod {
-				//	logrus.Infof("%v deleting partially-created pod sandbox %q", err2, container.ID)
-				//} else {
 				logrus.Infof("%v deleting partially-created container %q", err2, container.ID)
 				//}
 				return
@@ -301,21 +239,13 @@ func (r *storageService) CreateContainerStorage(systemContext *types.SystemConte
 	if err != nil {
 		return ContainerInfo{}, err
 	}
-	//if metadata.Pod {
-	//	logrus.Debugf("pod sandbox %q has work directory %q", container.ID, containerDir)
-	//} else {
 	logrus.Debugf("container %q has work directory %q", container.ID, containerDir)
-	//}
 
 	containerRunDir, err := r.storageImageServer.store.ContainerRunDirectory(container.ID)
 	if err != nil {
 		return ContainerInfo{}, err
 	}
-	//if metadata.Pod {
-	//	logrus.Debugf("pod sandbox %q has run directory %q", container.ID, containerRunDir)
-	//} else {
 	logrus.Debugf("container %q has run directory %q", container.ID, containerRunDir)
-	//}
 
 	return ContainerInfo{
 		ID:     container.ID, // not needed
@@ -324,30 +254,6 @@ func (r *storageService) CreateContainerStorage(systemContext *types.SystemConte
 		Config: imageConfig,
 	}, nil
 }
-
-//func (r *storageService) CreatePodSandbox(systemContext *types.SystemContext, podName, podID, imageName, imageID, containerName, metadataName, uid, namespace string, attempt uint32, copyOptions *copy.Options) (ContainerInfo, error) {
-//	return r.createContainerOrPodSandbox(systemContext, podName, podID, imageName, imageID, containerName, podID, metadataName, uid, namespace, attempt, "", copyOptions)
-//}
-
-//func (r *storageService) CreateContainer(systemContext *types.SystemContext, podName, podID, imageName, imageID, containerName, containerID, metadataName string, attempt uint32, mountLabel string, copyOptions *copy.Options) (ContainerInfo, error) {
-//	return r.createContainerOrPodSandbox(systemContext, podName, podID, imageName, imageID, containerName, containerID, metadataName, "", "", attempt, mountLabel, copyOptions)
-//}
-
-//func (r *storageService) RemovePodSandbox(idOrName string) error {
-//	container, err := r.storageImageServer.GetStore().Container(idOrName)
-//	if err != nil {
-//		if errors.Cause(err) == storage.ErrContainerUnknown {
-//			return ErrInvalidSandboxID
-//		}
-//		return err
-//	}
-//	err = r.storageImageServer.GetStore().DeleteContainer(container.ID)
-//	if err != nil {
-//		logrus.Debugf("failed to delete pod sandbox %q: %v", container.ID, err)
-//		return err
-//	}
-//	return nil
-//}
 
 func (r *storageService) DeleteContainer(idOrName string) error {
 	if idOrName == "" {
@@ -446,12 +352,3 @@ func (r *storageService) GetRunDir(id string) (string, error) {
 	return r.storageImageServer.store.ContainerRunDirectory(container.ID)
 }
 
-// GetRuntimeService returns a RuntimeServer that uses the passed-in image
-// service to pull and manage images, and its store to manage containers based
-// on those images.
-//func GetRuntimeService(storageImageServer ImageServer) RuntimeServer {
-//	return &storageService{
-//		storageImageServer: storageImageServer,
-//		//pauseImage:         pauseImage,
-//	}
-//}

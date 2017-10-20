@@ -169,25 +169,6 @@ func createCmd(c *cli.Context) error {
 	if err := ctr.Create(); err != nil{
 		return err
 	}
-	// Create the ContainerStorage
-	//storageService, err := runtime.GetStorageService(runtime)
-	//if err != nil {
-	//	return err
-	//}
-
-	//k := runtime.NewImage(createConfig.image)
-	//iid, err := k.GetImageID()
-	//if err != nil {
-	//	return err
-	//}
-
-	// Create the container storage space
-	//containerConfig, err := storageService.CreateContainerStorage(&types.SystemContext{}, createConfig.image, iid, ctr.Name(), ctr.ID(), "system_u:object_r:container_file_t:s0")
-	//if err != nil {
-	//	return err
-	//}
-	//mountPoint, err := storageService.StartContainer(containerConfig.ID)
-	// If user wants the container ID written to a file
 
 	if c.String("cid-file") != ""{
 		libpod.WriteFile(ctr.ID(), c.String("cid-file"))
@@ -412,6 +393,7 @@ func createConfigToOCISpec(config *createConfig) (*spec.Spec, error) {
 			},
 			Args:         config.command, // command plus all args
 			Env:          config.env,
+			Cwd: config.workDir,
 			Capabilities: &spec.LinuxCapabilities{
 			// No match from user input for any of these
 
