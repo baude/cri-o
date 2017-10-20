@@ -142,7 +142,7 @@ func (r *OCIRuntime) createContainer(ctr *Container, cgroupParent string) error 
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	if c.terminal {
+	if ctr.config.Spec.Process.Terminal {
 		cmd.Stderr = &stderrBuf
 	}
 

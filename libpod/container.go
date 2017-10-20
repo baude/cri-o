@@ -43,7 +43,7 @@ type Container struct {
 	pod         *Pod
 	runningSpec *spec.Spec
 
-	state *containerState
+	state *containerRuntimeInfo
 
 	// TODO move to storage.Locker from sync.Mutex
 	valid   bool
@@ -53,7 +53,7 @@ type Container struct {
 
 // containerState contains the current state of the container
 // It is stored as on disk in a per-boot directory
-type containerState struct {
+type containerRuntimeInfo struct {
 	// The current state of the running container
 	State ContainerState `json:"state"`
 
@@ -98,6 +98,10 @@ type containerConfig struct {
 	// Shared namespaces with container
 	SharedNamespaceCtr *string           `json:"shareNamespacesWith,omitempty"`
 	SharedNamespaceMap map[string]string `json:"sharedNamespaces"`
+
+	// TODO save create time
+	// TODO save log location here and pass into OCI code
+	// TODO allow overriding of log path
 }
 
 // ID returns the container's ID
@@ -141,7 +145,7 @@ func newContainer(rspec *spec.Spec) (*Container, error) {
 
 	ctr := new(Container)
 	ctr.config = new(containerConfig)
-	ctr.state = new(containerState)
+	ctr.state = new(containerRuntimeInfo)
 
 	ctr.config.ID = stringid.GenerateNonCryptoID()
 	ctr.config.Name = ctr.config.ID // TODO generate unique human-readable names
