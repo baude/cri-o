@@ -110,9 +110,9 @@ func (r *OCIRuntime) createContainer(ctr *Container, cgroupParent string) error 
 	args = append(args, "-r", r.path)
 	args = append(args, "-b", ctr.containerRunDir)
 	args = append(args, "-p", filepath.Join(ctr.containerRunDir, "pidfile"))
-	// TODO container log location should be configuration
+	// TODO container log location should be configurable
 	// The default also likely shouldn't be this
-	args = append(args, "-l", ctr.containerDir)
+	args = append(args, "-l", filepath.Join(ctr.containerDir, "ctr.log"))
 	args = append(args, "--exit-dir", r.exitsDir)
 	if r.logSizeMax >= 0 {
 		args = append(args, "--log-size-max", fmt.Sprintf("%v", r.logSizeMax))
