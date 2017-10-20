@@ -6,6 +6,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 	"github.com/kubernetes-incubator/cri-o/libpod"
+	"github.com/sirupsen/logrus"
 )
 
 var runDescription = "Runs a command in a new container from the given image"
@@ -20,9 +21,6 @@ var runCommand = cli.Command{
 }
 
 func runCmd(c *cli.Context) error {
-	if len(c.Args()) != 1 {
-		return errors.Errorf("must specify name of image to create from")
-	}
 	if err := validateFlags(c, createFlags); err != nil {
 		return err
 	}
@@ -36,15 +34,16 @@ func runCmd(c *cli.Context) error {
 		return err
 	}
 
-	runtimeSpec, err := createConfigToOCISpec(createConfig)
-	if err != nil {
-		return err
-	}
+	//runtimeSpec, err := createConfigToOCISpec(createConfig)
+	//if err != nil {
+	//	return err
+	//}
 
-	ctr, err := runtime.NewContainer(runtimeSpec)
-	if err != nil {
-		return err
-	}
+	//ctr, err := runtime.NewContainer(runtimeSpec)
+	//if err != nil {
+	//	return err
+	//}
+
 	createImage := runtime.NewImage(createConfig.image)
 
 	if !createImage.HasImageLocal() {
@@ -54,7 +53,7 @@ func runCmd(c *cli.Context) error {
 		createImage.Pull()
 	}
 
-	runtimeSpec, err = createConfigToOCISpec(createConfig)
+	runtimeSpec, err := createConfigToOCISpec(createConfig)
 	if err != nil {
 		return err
 	}
@@ -63,24 +62,42 @@ func runCmd(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
+	logrus.Debug("imageName is %s", imageName)
 
 	imageID, err := createImage.GetImageID()
 	if err != nil {
 		return err
 	}
+	logrus.Debug("imageID is %s", imageID)
 
-	ctr, err = runtime.NewContainer(runtimeSpec, libpod.WithRootFSFromImage(imageID, imageName, false) )
+	ctr, err := runtime.NewContainer(runtimeSpec, libpod.WithRootFSFromImage(imageID, imageName, false) )
+	fmt.Printf("%+v\n", runtimeSpec)
 	if err != nil {
 		return err
 	}
 
+	logrus.Debug("newContainer %s created", ctr.ID())
 	if err := ctr.Create(); err != nil{
 		return err
 	}
+	logrus.Debug("container storage for %s created", ctr.ID())
 
 	if c.String("cid-file") != ""{
 		libpod.WriteFile(ctr.ID(), c.String("cid-file"))
 		return nil
+	}
+	// Start the container
+	if err := ctr.Start(); err != nil{
+		return errors.Wrapf(err, "unable to start container %s", ctr.ID())
+	}
+	logrus.Debug("started container %s", ctr.ID())
+
+
+
+	// Attach to the container
+	if err := ctr.Attach(false, c.String("detach-keys")); err != nil	{
+		return errors.Wrapf(err, "unable to attach to container %s", ctr.ID())
+
 	}
 
 	fmt.Printf("%s\n", ctr.ID())

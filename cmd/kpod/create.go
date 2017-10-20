@@ -160,7 +160,6 @@ func createCmd(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println(imageID)
 	ctr, err := runtime.NewContainer(runtimeSpec, libpod.WithRootFSFromImage(imageID, imageName, false) )
 	if err != nil {
 		return err
