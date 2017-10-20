@@ -226,3 +226,15 @@ func (r *OCIRuntime) createContainer(ctr *Container, cgroupParent string) error 
 func (r *OCIRuntime) updateContainerStatus(ctr *Container) error {
 	return ErrNotImplemented
 }
+
+// startContainer starts the given container
+func (r *OCIRuntime) startContainer(ctr *Container) error {
+	// TODO: streams should probably *not* be our STDIN/OUT/ERR - redirect to buffers?
+	if err := utils.ExecCmdWithStdStreams(os.Stdin, os.Stdout, os.Stderr, r.path, "start", ctr.ID()); err != nil {
+		return err
+	}
+
+	// TODO record start time in container struct
+
+	return nil
+}

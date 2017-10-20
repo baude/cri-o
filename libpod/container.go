@@ -232,12 +232,38 @@ func (c *Container) Create() (err error) {
 
 	// With the spec complete, do an OCI create
 	// TODO set cgroup parent in a sane fashion
-	return c.runtime.ociRuntime.createContainer(c, "/libpod_parent")
+	if err := c.runtime.ociRuntime.createContainer(c, "/libpod_parent"); err != nil {
+		return err
+	}
+
+	// TODO should flush this state to disk here
+	c.state = ContainerStateCreated
+
+	return nil
 }
 
 // Start starts a container
 func (c *Container) Start() error {
-	return ErrNotImplemented
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	if !c.valid {
+		return ErrCtrRemoved
+	}
+
+	// Container must be created or stopped to be started
+	if !(c.state == ContainerStateCreated || c.state == ContainerStateStopped) {
+		return errors.Wrapf(ErrCtrStateInvalid, "container %s must be in Created or Stopped state to be started", c.ID())
+	}
+
+	if err := c.runtime.ociRuntime.startContainer(c); err != nil {
+		return err
+	}
+
+	// TODO should flush state to disk here
+	c.state = ContainerStateRunning
+
+	return nil
 }
 
 // Stop stops a container
