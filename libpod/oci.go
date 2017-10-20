@@ -108,11 +108,11 @@ func (r *OCIRuntime) createContainer(ctr *Container, cgroupParent string) error 
 	args = append(args, "-c", ctr.ID())
 	args = append(args, "-u", ctr.ID())
 	args = append(args, "-r", r.path)
-	args = append(args, "-b", ctr.containerRunDir)
-	args = append(args, "-p", filepath.Join(ctr.containerRunDir, "pidfile"))
+	args = append(args, "-b", ctr.state.RunDir)
+	args = append(args, "-p", filepath.Join(ctr.state.RunDir, "pidfile"))
 	// TODO container log location should be configurable
 	// The default also likely shouldn't be this
-	args = append(args, "-l", filepath.Join(ctr.containerDir, "ctr.log"))
+	args = append(args, "-l", filepath.Join(ctr.config.StaticDir, "ctr.log"))
 	args = append(args, "--exit-dir", r.exitsDir)
 	if r.logSizeMax >= 0 {
 		args = append(args, "--log-size-max", fmt.Sprintf("%v", r.logSizeMax))
@@ -125,7 +125,7 @@ func (r *OCIRuntime) createContainer(ctr *Container, cgroupParent string) error 
 	}).Debugf("running conmon: %s", r.conmonPath)
 
 	cmd := exec.Command(r.conmonPath, args...)
-	cmd.Dir = ctr.containerRunDir
+	cmd.Dir = ctr.state.RunDir
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Setpgid: true,
 	}
