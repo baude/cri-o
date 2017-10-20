@@ -224,7 +224,19 @@ func WithNoPivotRoot(noPivot bool) RuntimeOption {
 // WithRootFSFromPath uses the given path as a container's root filesystem
 // No further setup is performed on this path
 func WithRootFSFromPath(path string) CtrCreateOption {
-	return ctrNotImplemented
+	return func(ctr *Container) error {
+		if ctr.valid {
+			return ErrCtrFinalized
+		}
+
+		if ctr.config.RootfsDir != nil || ctr.config.RootfsImageID != nil || ctr.config.RootfsImageName != nil {
+			return fmt.Errorf("container already configured to with rootfs")
+		}
+
+		ctr.config.RootfsDir = &path
+
+		return nil
+	}
 }
 
 // WithRootFSFromImage sets up a fresh root filesystem using the given image
@@ -237,13 +249,13 @@ func WithRootFSFromImage(imageID string, imageName string, useImageConfig bool) 
 			return ErrCtrFinalized
 		}
 
-		if ctr.config.rootfsDir != nil || ctr.config.rootfsImageID != nil || ctr.config.rootfsImageName != nil {
-			return fmt.Errorf("container already configured to with rootfs!")
+		if ctr.config.RootfsDir != nil || ctr.config.RootfsImageID != nil || ctr.config.RootfsImageName != nil {
+			return fmt.Errorf("container already configured to with rootfs")
 		}
 
-		ctr.config.rootfsImageID = &imageID
-		ctr.config.rootfsImageName = &imageName
-		ctr.config.useImageConfig = useImageConfig
+		ctr.config.RootfsImageID = &imageID
+		ctr.config.RootfsImageName = &imageName
+		ctr.config.UseImageConfig = useImageConfig
 
 		return nil
 	}
@@ -303,7 +315,7 @@ func WithName(name string) CtrCreateOption {
 			return ErrCtrFinalized
 		}
 
-		ctr.config.name = name
+		ctr.config.Name = name
 
 		return nil
 	}

@@ -71,26 +71,26 @@ type Container struct {
 // container. It may not be changed once created.
 // It is stored as an unchanging part of on-disk state
 type containerConfig struct {
-	spec               *spec.Spec        `json:"spec"`
-	id                 string            `json:"id"`
-	name               string            `json:"name"`
-	rootfsDir          *string           `json:"rootfsDir",omitempty`
-	rootfsImageID      *string           `json:"rootfsImageID",omitempty`
-	rootfsImageName    *string           `json:"rootfsImageName",omitempty`
-	useImageConfig     bool              `json:"useImageConfig"`
-	pod                *string           `json:"pod",omitempty`
-	sharedNamespaceCtr *string           `json:"shareNamespacesWith",omitempty`
-	sharedNamespaceMap map[string]string `json:"sharedNamespaces"`
+	Spec               *spec.Spec        `json:"spec"`
+	ID                 string            `json:"id"`
+	Name               string            `json:"name"`
+	RootfsDir          *string           `json:"rootfsDir,omitempty"`
+	RootfsImageID      *string           `json:"rootfsImageID,omitempty"`
+	RootfsImageName    *string           `json:"rootfsImageName,omitempty"`
+	UseImageConfig     bool              `json:"useImageConfig"`
+	Pod                *string           `json:"pod,omitempty"`
+	SharedNamespaceCtr *string           `json:"shareNamespacesWith,omitempty"`
+	SharedNamespaceMap map[string]string `json:"sharedNamespaces"`
 }
 
 // ID returns the container's ID
 func (c *Container) ID() string {
-	return c.config.id
+	return c.config.ID
 }
 
 // Name returns the container's name
 func (c *Container) Name() string {
-	return c.config.name
+	return c.config.Name
 }
 
 // Spec returns the container's OCI runtime spec
@@ -98,7 +98,7 @@ func (c *Container) Name() string {
 // spec may differ slightly as mounts are added based on the image
 func (c *Container) Spec() *spec.Spec {
 	spec := new(spec.Spec)
-	deepcopier.Copy(c.config.spec).To(spec)
+	deepcopier.Copy(c.config.Spec).To(spec)
 
 	return spec
 }
@@ -125,11 +125,11 @@ func newContainer(rspec *spec.Spec) (*Container, error) {
 	ctr := new(Container)
 	ctr.config = new(containerConfig)
 
-	ctr.config.id = stringid.GenerateNonCryptoID()
-	ctr.config.name = ctr.config.id // TODO generate unique human-readable names
+	ctr.config.ID = stringid.GenerateNonCryptoID()
+	ctr.config.Name = ctr.config.ID // TODO generate unique human-readable names
 
-	ctr.config.spec = new(spec.Spec)
-	deepcopier.Copy(rspec).To(ctr.config.spec)
+	ctr.config.Spec = new(spec.Spec)
+	deepcopier.Copy(rspec).To(ctr.config.Spec)
 
 	return ctr, nil
 }
@@ -147,24 +147,25 @@ func (c *Container) setupStorage() error {
 		return errors.Wrapf(ErrCtrStateInvalid, "container %s must be in Configured state to have storage set up", c.ID())
 	}
 
-	// Verify that we got enough to set up storage when the container was configured
-	if c.config.rootfsDir != nil {
+	// If we're configured to use a directory, perform that setup
+	if c.config.RootfsDir != nil {
 		// TODO implement directory-based root filesystems
 		return ErrNotImplemented
-	} else {
-		return c.setupImageRootfs()
 	}
+
+	// Not using a directory, so call into containers/storage
+	return c.setupImageRootfs()
 }
 
 // Set up an image as root filesystem using containers/storage
 func (c *Container) setupImageRootfs() error {
 	// Need both an image ID and image name, plus a bool telling us whether to use the image configuration
-	if c.config.rootfsImageID == nil || c.config.rootfsImageName == nil {
+	if c.config.RootfsImageID == nil || c.config.RootfsImageName == nil {
 		return errors.Wrapf(ErrInvalidArg, "must provide image ID and image name to use an image")
 	}
 
 	// TODO SELinux mount label
-	containerInfo, err := c.runtime.storageService.CreateContainerStorage(c.runtime.imageContext, *c.config.rootfsImageName, *c.config.rootfsImageID, c.config.name, c.config.id, "")
+	containerInfo, err := c.runtime.storageService.CreateContainerStorage(c.runtime.imageContext, *c.config.RootfsImageName, *c.config.RootfsImageID, c.config.Name, c.config.ID, "")
 	if err != nil {
 		return errors.Wrapf(err, "error creating container storage")
 	}
@@ -214,7 +215,7 @@ func (c *Container) Create() (err error) {
 
 	// Make the OCI runtime spec we will use
 	c.runningSpec = new(spec.Spec)
-	deepcopier.Copy(c.config.spec).To(c.runningSpec)
+	deepcopier.Copy(c.config.Spec).To(c.runningSpec)
 	c.runningSpec.Root.Path = c.containerMountPoint
 
 	// TODO Add annotation for start time to spec
