@@ -13,6 +13,7 @@ import (
 	"github.com/kubernetes-incubator/cri-o/libpod"
 	"golang.org/x/sys/unix"
 	"strconv"
+	ann "github.com/kubernetes-incubator/cri-o/pkg/annotations"
 )
 
 type createResourceConfig struct {
@@ -40,14 +41,9 @@ type createResourceConfig struct {
 	pidsLimit         int64    // pids-limit
 	shmSize           string
 	ulimit            []string //ulimit
-
-	//cpuCount          int64 // cpu-count
-	//cpusetNames       string
-	//cpuFile           string
 }
 
 type createConfig struct {
-	//additionalGroups []int64
 	args           []string
 	capAdd         []string // cap-add
 	capDrop        []string // cap-drop
@@ -120,9 +116,6 @@ var createCommand = cli.Command{
 func createCmd(c *cli.Context) error {
 	// TODO should allow user to create based off a directory on the host not just image
 	// Need CLI support for this
-	//if len(c.Args()) != 1 {
-	//	return errors.Errorf("must specify name of image to create from")
-	//}
 	if err := validateFlags(c, createFlags); err != nil {
 		return err
 	}
@@ -234,6 +227,7 @@ func parseCreateOpts(c *cli.Context, runtime *libpod.Runtime) (*createConfig, er
 	}
 
 	if c.String("user") != "" {
+		// TODO
 		// We need to mount the imagefs and get the uid/gid
 		// For now, user zeros
 		uid = 0
@@ -271,24 +265,6 @@ func parseCreateOpts(c *cli.Context, runtime *libpod.Runtime) (*createConfig, er
 		}
 		blkioWeight = uint16(u)
 	}
-
-	//var blkioWeightDevices []spec.LinuxWeightDevice
-	//if len(c.StringSlice("blkio-weight-device")) > 0{
-	//	for _, i := range(c.StringSlice("blkio-weight-device")) {
-	//		wd, err := validateweightDevice(i)
-	//		if err != nil {
-	//			return nil, errors.Wrapf(err, "invalid values for blkio-weight-device")
-	//		}
-	//		wdStat := unix.Stat_t{}
-	//		_ = unix.Stat(wd.path, &wdStat)
-	//		major := unix.Major(wdStat.Rdev)
-	//		minor := unix.Minor(wdStat.Rdev)
-	//		_ = blkioLeafWeight
-	//			//spec.LinuxWeightDevice{devices.Major()}
-	//		//fmt.Println("Major:",uint64(stat.Rdev/256), "Minor:",uint64(stat.Rdev%256))
-	//		//blkioWeightDevices = append(blkioWeightDevices, lwd)
-	//	}
-	//}
 
 	config := &createConfig{
 		capAdd:         c.StringSlice("cap-add"),
@@ -375,34 +351,99 @@ func parseCreateOpts(c *cli.Context, runtime *libpod.Runtime) (*createConfig, er
 // Parses information needed to create a container into an OCI runtime spec
 func createConfigToOCISpec(config *createConfig) (*spec.Spec, error) {
 
-	blkio, err := config.CreateBlockIO()
-	if err != nil {
-		return &spec.Spec{}, err
+	//blkio, err := config.CreateBlockIO()
+	//if err != nil {
+	//	return &spec.Spec{}, err
+	//}
+
+	spec := config.GetDefaultLinuxSpec()
+	spec.Process.Cwd = config.workDir
+	spec.Process.Args = config.command
+
+	if config.tty {
+		spec.Process.Terminal = config.tty
 	}
 
-	spec := &spec.Spec{
-		Version: spec.Version,
-		Process: &spec.Process{
-			Terminal: config.tty,
-			User: spec.User{
-				UID:            config.user,     //uint32
-				GID:            config.group,    //uin32
-				AdditionalGids: config.groupAdd, //[]uint32
-				//Username //string  <- No input
-			},
-			Args:         config.command, // command plus all args
-			Env:          config.env,
-			Cwd: config.workDir,
+	if config.user != 0{
+		// User and Group must go together
+		spec.Process.User.UID = config.user
+		spec.Process.User.GID = config.group
+	}
+	if len(config.groupAdd) > 0{
+		spec.Process.User.AdditionalGids = config.groupAdd
+	}
+	if len(config.env) > 0{
+		spec.Process.Env = config.env
+	}
+	//TODO
+	// Need examples of capacity additions so I can load that properly
+
+	if config.readOnlyRootfs{
+		spec.Root.Readonly = config.readOnlyRootfs
+	}
+
+	if config.hostname != ""{
+		spec.Hostname = config.hostname
+	}
+
+	//TODO
+	//Add mounts -- are they in addition or replacement ?
+
+	// RESOURCES - MEMORY
+	if len(config.sysctl) > 0{
+		spec.Linux.Sysctl = config.sysctl
+	}
+	if config.resources.memory != 0 {
+		spec.Linux.Resources.Memory.Limit = &config.resources.memory
+	}
+	if config.resources.memoryReservation != 0 {
+		spec.Linux.Resources.Memory.Reservation = &config.resources.memoryReservation
+	}
+	if config.resources.memorySwap != 0 {
+		spec.Linux.Resources.Memory.Swap = &config.resources.memorySwap
+	}
+	if config.resources.kernelMemory != 0 {
+		spec.Linux.Resources.Memory.Kernel = &config.resources.kernelMemory
+	}
+	if config.resources.memorySwapiness != 0{
+		spec.Linux.Resources.Memory.Swappiness = &config.resources.memorySwapiness
+	}
+	if config.resources.disableOomKiller{
+		spec.Linux.Resources.Memory.DisableOOMKiller = &config.resources.disableOomKiller
+	}
+
+	// RESOURCES - CPU
+
+	if config.resources.cpuShares != 0{
+		spec.Linux.Resources.CPU.Shares = &config.resources.cpuShares
+	}
+	if config.resources.cpuQuota != 0 {
+		spec.Linux.Resources.CPU.Quota = &config.resources.cpuQuota
+	}
+	if config.resources.cpuPeriod != 0 {
+		spec.Linux.Resources.CPU.Period = &config.resources.cpuPeriod
+	}
+	if config.resources.cpuRtRuntime != 0 {
+		spec.Linux.Resources.CPU.RealtimeRuntime = &config.resources.cpuRtRuntime
+	}
+	if config.resources.cpuRtPeriod != 0 {
+		spec.Linux.Resources.CPU.RealtimePeriod = &config.resources.cpuRtPeriod
+	}
+	if config.resources.cpus != "" {
+		spec.Linux.Resources.CPU.Cpus = config.resources.cpus
+	}
+	if config.resources.cpusetMems != "" {
+		spec.Linux.Resources.CPU.Mems = config.resources.cpusetMems
+	}
+
+	// RESOURCES - PIDS
+	if config.resources.pidsLimit != 0 {
+		spec.Linux.Resources.Pids.Limit = config.resources.pidsLimit
+	}
+
+
+	/*
 			Capabilities: &spec.LinuxCapabilities{
-			// No match from user input for any of these
-
-			// Bounding []string
-			// Effective []string
-			// Inheritable []string
-			// Permitted []string
-			// Ambient []string
-
-			},
 			// Rlimits []PosixRlimit // Where does this come from
 			// Type string
 			// Hard uint64
@@ -412,41 +453,10 @@ func createConfigToOCISpec(config *createConfig) (*spec.Spec, error) {
 			OOMScoreAdj: &config.resources.oomScoreAdj,
 			// Selinuxlabel
 		},
-		Root: &spec.Root{
-			//Path: path to rootfs // is this workdir ?
-			Readonly: config.readOnlyRootfs,
-		},
-		Hostname: config.hostname,
-		// Mounts
 		Hooks: &spec.Hooks{},
 		//Annotations
-		Linux: &spec.Linux{
-			// UIDMappings
-			// GIDMappings
-			Sysctl: config.sysctl,
 			Resources: &spec.LinuxResources{
-				// Devices []LinuxDeviceCgroup
-				Memory: &spec.LinuxMemory{
-					Limit:       &config.resources.memory,
-					Reservation: &config.resources.memoryReservation,
-					Swap:        &config.resources.memorySwap,
-					Kernel:      &config.resources.kernelMemory,
-					// kerneltcp <-- nothing for this one
-					Swappiness:       &config.resources.memorySwapiness,
-					DisableOOMKiller: &config.resources.disableOomKiller,
-				},
-				CPU: &spec.LinuxCPU{
-					Shares:          &config.resources.cpuShares,
-					Quota:           &config.resources.cpuQuota,
-					Period:          &config.resources.cpuPeriod,
-					RealtimeRuntime: &config.resources.cpuRtRuntime,
-					RealtimePeriod:  &config.resources.cpuRtPeriod,
-					Cpus:            config.resources.cpus,
-					Mems:            config.resources.cpusetMems,
-				},
-				Pids: &spec.LinuxPids{
-					Limit: config.resources.pidsLimit,
-				},
+				Devices: config.GetDefaultDevices(),
 				BlockIO: &blkio,
 				//HugepageLimits:
 				Network: &spec.LinuxNetwork{
@@ -469,7 +479,8 @@ func createConfigToOCISpec(config *createConfig) (*spec.Spec, error) {
 			// IntelRdt
 		},
 	}
-	return spec, nil
+	*/
+	return &spec, nil
 }
 
 func getStatFromPath(path string) unix.Stat_t {
@@ -545,4 +556,221 @@ func (c *createConfig) CreateBlockIO() (spec.LinuxBlockIO, error) {
 	}
 
 	return bio, nil
+}
+
+func (c *createConfig) GetDefaultMounts() []spec.Mount {
+	return []spec.Mount{
+		{
+			Destination: "/proc",
+			Type:        "proc",
+			Source:      "proc",
+			Options:     []string{"nosuid", "noexec", "nodev"},
+		},
+		{
+			Destination: "/dev",
+			Type:        "tmpfs",
+			Source:      "tmpfs",
+			Options:     []string{"nosuid", "strictatime", "mode=755", "size=65536k"},
+		},
+		{
+			Destination: "/dev/pts",
+			Type:        "devpts",
+			Source:      "devpts",
+			Options:     []string{"nosuid", "noexec", "newinstance", "ptmxmode=0666", "mode=0620", "gid=5"},
+		},
+		{
+			Destination: "/sys",
+			Type:        "sysfs",
+			Source:      "sysfs",
+			Options:     []string{"nosuid", "noexec", "nodev", "ro"},
+		},
+		{
+			Destination: "/sys/fs/cgroup",
+			Type:        "cgroup",
+			Source:      "cgroup",
+			Options:     []string{"ro", "nosuid", "noexec", "nodev"},
+		},
+		{
+			Destination: "/dev/mqueue",
+			Type:        "mqueue",
+			Source:      "mqueue",
+			Options:     []string{"nosuid", "noexec", "nodev"},
+		},
+		{
+			Destination: "/dev/shm",
+			Type:        "tmpfs",
+			Source:      "shm",
+			Options:     []string{"nosuid", "noexec", "nodev", "mode=1777"},
+		},
+	}
+}
+func iPtr(i int64) *int64        { return &i }
+
+func (c *createConfig) GetDefaultDevices() []spec.LinuxDeviceCgroup{
+	return []spec.LinuxDeviceCgroup{
+		{
+			Allow:  false,
+			Access: "rwm",
+		},
+		{
+			Allow:  true,
+			Type:   "c",
+			Major:  iPtr(1),
+			Minor:  iPtr(5),
+			Access: "rwm",
+		},
+		{
+			Allow:  true,
+			Type:   "c",
+			Major:  iPtr(1),
+			Minor:  iPtr(3),
+			Access: "rwm",
+		},
+		{
+			Allow:  true,
+			Type:   "c",
+			Major:  iPtr(1),
+			Minor:  iPtr(9),
+			Access: "rwm",
+		},
+		{
+			Allow:  true,
+			Type:   "c",
+			Major:  iPtr(1),
+			Minor:  iPtr(8),
+			Access: "rwm",
+		},
+		{
+			Allow:  true,
+			Type:   "c",
+			Major:  iPtr(5),
+			Minor:  iPtr(0),
+			Access: "rwm",
+		},
+		{
+			Allow:  true,
+			Type:   "c",
+			Major:  iPtr(5),
+			Minor:  iPtr(1),
+			Access: "rwm",
+		},
+		{
+			Allow:  false,
+			Type:   "c",
+			Major:  iPtr(10),
+			Minor:  iPtr(229),
+			Access: "rwm",
+		},
+	}
+}
+
+func defaultCapabilities() []string {
+	return []string{
+		"CAP_CHOWN",
+		"CAP_DAC_OVERRIDE",
+		"CAP_FSETID",
+		"CAP_FOWNER",
+		"CAP_MKNOD",
+		"CAP_NET_RAW",
+		"CAP_SETGID",
+		"CAP_SETUID",
+		"CAP_SETFCAP",
+		"CAP_SETPCAP",
+		"CAP_NET_BIND_SERVICE",
+		"CAP_SYS_CHROOT",
+		"CAP_KILL",
+		"CAP_AUDIT_WRITE",
+	}
+}
+
+func (c *createConfig) GetDefaultLinuxSpec() spec.Spec {
+	s := spec.Spec{
+		Version: spec.Version,
+		Root: &spec.Root{},
+	}
+	s.Annotations = c.GetAnnotations()
+	s.Mounts = c.GetDefaultMounts()
+	s.Process = &spec.Process{
+		Capabilities: &spec.LinuxCapabilities{
+			Bounding: defaultCapabilities(),
+			Permitted: defaultCapabilities(),
+			Inheritable: defaultCapabilities(),
+			Effective: defaultCapabilities(),
+		},
+	}
+	s.Linux = &spec.Linux{
+		MaskedPaths: []string{
+			"/proc/kcore",
+			"/proc/latency_stats",
+			"/proc/timer_list",
+			"/proc/timer_stats",
+			"/proc/sched_debug",
+		},
+		ReadonlyPaths: []string{
+			"/proc/asound",
+			"/proc/bus",
+			"/proc/fs",
+			"/proc/irq",
+			"/proc/sys",
+			"/proc/sysrq-trigger",
+		},
+		Namespaces: []spec.LinuxNamespace{
+			{Type: "mount"},
+			{Type: "network"},
+			{Type: "uts"},
+			{Type: "pid"},
+			{Type: "ipc"},
+		},
+		Devices: []spec.LinuxDevice{},
+		Resources: &spec.LinuxResources{
+			Devices: c.GetDefaultDevices(),
+		},
+	}
+
+	return s
+}
+
+
+func (c *createConfig) GetAnnotations() map[string]string{
+	a := getDefaultAnnotations()
+	// TODO
+	// Which annotations do we want added by default
+	if c.tty {
+		a["io.kubernetes.cri-o.TTY"] = "true"
+	}
+	return a
+}
+
+func getDefaultAnnotations() map[string]string{
+	var a map[string]string
+	a = make(map[string]string)
+	a[ann.Annotations] = ""
+	a[ann.ContainerID] = ""
+	a[ann.ContainerName] = ""
+	a[ann.ContainerType] = ""
+	a[ann.Created] = ""
+	a[ann.HostName] = ""
+	a[ann.IP] = ""
+	a[ann.Image] = ""
+	a[ann.ImageName] = ""
+	a[ann.ImageRef] = ""
+	a[ann.KubeName] = ""
+	a[ann.Labels] = ""
+	a[ann.LogPath] = ""
+	a[ann.Metadata] = ""
+	a[ann.Name] = ""
+	a[ann.PrivilegedRuntime] = ""
+	a[ann.ResolvPath] = ""
+	a[ann.HostnamePath] = ""
+	a[ann.SandboxID] = ""
+	a[ann.SandboxName] = ""
+	a[ann.ShmPath] = ""
+	a[ann.MountPoint] = ""
+	a[ann.TrustedSandbox] = ""
+	a[ann.TTY] = "false"
+	a[ann.Stdin]	 = ""
+	a[ann.StdinOnce] = ""
+	a[ann.Volumes] = ""
+
+	return a
 }

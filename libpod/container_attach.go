@@ -30,7 +30,6 @@ func (c *Container) attachContainerSocket(resize <-chan remotecommand.TerminalSi
 	inputStream := os.Stdin
 	outputStream := os.Stdout
 	errorStream := os.Stderr
-
 	defer inputStream.Close()
 	tty, err := strconv.ParseBool(c.runningSpec.Annotations["io.kubernetes.cri-o.TTY"])
 	if err != nil {
@@ -53,7 +52,7 @@ func (c *Container) attachContainerSocket(resize <-chan remotecommand.TerminalSi
 		term.SetRawTerminal(inputStream.Fd())
 	}
 
-	controlPath := filepath.Join(c.containerDir, "ctl")
+	controlPath := filepath.Join(c.state.RunDir, "ctl")
 	controlFile, err := os.OpenFile(controlPath, unix.O_WRONLY, 0)
 	if err != nil {
 		return errors.Wrapf(err, "failed to open container ctl file: %v")
@@ -66,7 +65,10 @@ func (c *Container) attachContainerSocket(resize <-chan remotecommand.TerminalSi
 			logrus.Warn("Failed to write to control file to resize terminal: %v", err)
 		}
 	})
-	attachSocketPath := filepath.Join("/var/run/crio", c.ID(), "attach")
+	attachSocketPath := filepath.Join(c.runtime.ociRuntime.socketsDir, c.ID(), "attach")
+	logrus.Debug("connecting to socket ", attachSocketPath)
+
+
 	conn, err := net.DialUnix("unixpacket", nil, &net.UnixAddr{Name: attachSocketPath, Net: "unixpacket"})
 	if err != nil {
 		return errors.Wrapf(err, "failed to connect to container's attach socket: %v")

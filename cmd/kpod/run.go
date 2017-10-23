@@ -34,16 +34,6 @@ func runCmd(c *cli.Context) error {
 		return err
 	}
 
-	//runtimeSpec, err := createConfigToOCISpec(createConfig)
-	//if err != nil {
-	//	return err
-	//}
-
-	//ctr, err := runtime.NewContainer(runtimeSpec)
-	//if err != nil {
-	//	return err
-	//}
-
 	createImage := runtime.NewImage(createConfig.image)
 
 	if !createImage.HasImageLocal() {
@@ -62,25 +52,25 @@ func runCmd(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	logrus.Debug("imageName is %s", imageName)
+	logrus.Debug("imageName is ", imageName)
 
 	imageID, err := createImage.GetImageID()
 	if err != nil {
 		return err
 	}
-	logrus.Debug("imageID is %s", imageID)
+	logrus.Debug("imageID is ", imageID)
 
-	ctr, err := runtime.NewContainer(runtimeSpec, libpod.WithRootFSFromImage(imageID, imageName, false) )
-	fmt.Printf("%+v\n", runtimeSpec)
+	ctr, err := runtime.NewContainer(runtimeSpec, libpod.WithRootFSFromImage(imageID, imageName, false),
+		libpod.WithStdin())
 	if err != nil {
 		return err
 	}
 
-	logrus.Debug("newContainer %s created", ctr.ID())
+	logrus.Debug("new container created ", ctr.ID())
 	if err := ctr.Create(); err != nil{
 		return err
 	}
-	logrus.Debug("container storage for %s created", ctr.ID())
+	logrus.Debug("container storage created for ", ctr.ID())
 
 	if c.String("cid-file") != ""{
 		libpod.WriteFile(ctr.ID(), c.String("cid-file"))
@@ -88,19 +78,18 @@ func runCmd(c *cli.Context) error {
 	}
 	// Start the container
 	if err := ctr.Start(); err != nil{
-		return errors.Wrapf(err, "unable to start container %s", ctr.ID())
+		return errors.Wrapf(err, "unable to start container ", ctr.ID())
 	}
-	logrus.Debug("started container %s", ctr.ID())
-
-
-
-	// Attach to the container
-	if err := ctr.Attach(false, c.String("detach-keys")); err != nil	{
-		return errors.Wrapf(err, "unable to attach to container %s", ctr.ID())
-
+	logrus.Debug("started container ", ctr.ID())
+	if createConfig.tty {
+		logrus.Debug("trying to attach to the container %s", ctr.ID())
+		if err := ctr.Attach(false, ""); err != nil {
+			return errors.Wrapf(err, "unable to attach to container %s", ctr.ID())
+		}
+	}else {
+		fmt.Printf("%s\n", ctr.ID())
 	}
 
-	fmt.Printf("%s\n", ctr.ID())
 
 
 

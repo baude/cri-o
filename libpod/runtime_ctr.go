@@ -4,6 +4,7 @@ import (
 	"github.com/containers/storage"
 	spec "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 )
 
 // Contains the public Runtime API for containers
@@ -31,6 +32,9 @@ func (r *Runtime) NewContainer(spec *spec.Spec, options ...CtrCreateOption) (*Co
 		return nil, err
 	}
 
+	logrus.Info("#############################")
+	logrus.Info(len(options))
+	logrus.Info("#############################")
 	for _, option := range options {
 		if err := option(ctr); err != nil {
 			return nil, errors.Wrapf(err, "error running container create option")
