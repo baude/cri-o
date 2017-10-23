@@ -40,6 +40,8 @@ const (
 	SystemdCgroupsManager = "systemd"
 	// ContainerExitsDir is the location of container exit dirs
 	ContainerExitsDir = "/var/run/crio/exits"
+	// Base directory for container attach sockets
+	AttachSocketDir = "/var/run/crio"
 
 	// killContainerTimeout is the timeout that we wait for the container to
 	// be SIGKILLed.
@@ -177,6 +179,7 @@ func (r *Runtime) CreateContainer(c *Container, cgroupParent string) (err error)
 	args = append(args, "-p", filepath.Join(c.bundlePath, "pidfile"))
 	args = append(args, "-l", c.logPath)
 	args = append(args, "--exit-dir", r.containerExitsDir)
+	args = append(args, "--socket-path", AttachSocketDir)
 	if r.logSizeMax >= 0 {
 		args = append(args, "--log-size-max", fmt.Sprintf("%v", r.logSizeMax))
 	}
